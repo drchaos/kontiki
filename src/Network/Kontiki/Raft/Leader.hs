@@ -127,6 +127,12 @@ handleHeartbeatTimeout = do
     nodes <- view configNodes
     let otherNodes = filter (/= nodeId) (Set.toList nodes)
     mapM_ (sendAppendEntries lastEntry commitIndex) otherNodes
+    when (null otherNodes) $ do
+        newQuorumIndex <- quorumIndex
+        when (newQuorumIndex > commitIndex) $ do
+            lCommitIndex .= newQuorumIndex
+            setCommitIndex newQuorumIndex
+
 
     currentState
 
