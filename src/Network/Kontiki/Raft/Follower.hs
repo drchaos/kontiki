@@ -16,6 +16,8 @@ module Network.Kontiki.Raft.Follower where
 
 import Prelude hiding (log)
 
+import qualified Data.Set as Set
+
 import Data.ByteString.Char8 ()
 
 import Control.Lens

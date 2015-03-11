@@ -130,7 +130,7 @@ handleHeartbeatTimeout = do
     currentState
 
 isSenderInConfig :: MessageFilter a
-isSenderInConfig s m nodes = True
+isSenderInConfig _ _ _ = True
 
 -- | `Handler' for `MCandidate' mode.
 handle :: (Functor m, Monad m, MonadLog m a)
