@@ -180,6 +180,11 @@ sendAppendEntries lastEntry commitIndex node = do
                                     , aeCommitIndex = commitIndex
                                     }
 
+isSenderInConfig :: MessageFilter a
+isSenderInConfig s m nodes = case m of 
+    MAppendEntries {} -> True
+    _                 -> s `Set.member` nodes
+
 -- | `Handler' for `MLeader' mode.
 handle :: (Functor m, Monad m, MonadLog m a)
        => Handler a Leader m
@@ -190,6 +195,7 @@ handle = handleGeneric
             handleAppendEntriesResponse
             handleElectionTimeout
             handleHeartbeatTimeout
+            isSenderInConfig
 
 -- | Transitions into `MLeader' mode by broadcasting heartbeat `AppendEntries'
 -- to all nodes and changing state to `LeaderState'. 

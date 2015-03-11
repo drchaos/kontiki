@@ -200,6 +200,11 @@ handleHeartbeatTimeout = do
     logS "Ignoring heartbeat timeout in Follower state"
     currentState
 
+isSenderInConfig :: MessageFilter a
+isSenderInConfig s m nodes = case m of 
+    MAppendEntries {} -> True
+    _                 -> s `Set.member` nodes
+
 -- | `Handler' for `MFollower' mode.
 handle :: (Functor m, Monad m, MonadLog m a) => Handler a Follower m
 handle = handleGeneric
@@ -209,3 +214,4 @@ handle = handleGeneric
             handleAppendEntriesResponse
             handleElectionTimeout
             handleHeartbeatTimeout
+            isSenderInConfig

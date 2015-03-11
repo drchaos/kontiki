@@ -36,15 +36,18 @@ currentState = wrap `fmap` get
 type MessageHandler' t a i m = NodeId -> t -> TransitionT a i m SomeState
 type TimeoutHandler' t a i m = TransitionT a i m SomeState
 type Handler' a i m = Event a -> TransitionT a i m SomeState
+type MessageFilter a = NodeId -> Message a -> NodeSet -> Bool
 
 -- | Generic handler that unwraps the `Event' and dispatches
 -- appropriate `MessageHandler', `TimeoutHandler' or `Handler'.
-handleGeneric :: MessageHandler' RequestVote a i m
+handleGeneric :: (Functor m, Monad m, Wrapable i)
+              => MessageHandler' RequestVote a i m
               -> MessageHandler' RequestVoteResponse a i m
               -> MessageHandler' (AppendEntries a) a i m
               -> MessageHandler' AppendEntriesResponse a i m
               -> TimeoutHandler' ElectionTimeout a i m
               -> TimeoutHandler' HeartbeatTimeout a i m
+              -> MessageFilter a
               -> Handler' a i m
 handleGeneric
     handleRequestVote
@@ -53,12 +56,17 @@ handleGeneric
     handleAppendEntriesResponse
     handleElectionTimeout
     handleHeartbeatTimeout
+    isSenderInConfig
     event = case event of
-    EMessage s m -> case m of
-        MRequestVote m' -> handleRequestVote s m'
-        MRequestVoteResponse m' -> handleRequestVoteResponse s m'
-        MAppendEntries m' -> handleAppendEntries s m'
-        MAppendEntriesResponse m' -> handleAppendEntriesResponse s m'
+    EMessage s m -> do
+        nodes <- view configNodes
+        if isSenderInConfig s m nodes
+            then case m of
+                    MRequestVote m' -> handleRequestVote s m'
+                    MRequestVoteResponse m' -> handleRequestVoteResponse s m'
+                    MAppendEntries m' -> handleAppendEntries s m'
+                    MAppendEntriesResponse m' -> handleAppendEntriesResponse s m'
+            else currentState
     EElectionTimeout -> handleElectionTimeout
     EHeartbeatTimeout -> handleHeartbeatTimeout
 

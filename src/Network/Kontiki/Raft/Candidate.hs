@@ -129,6 +129,9 @@ handleHeartbeatTimeout = do
     logS "Ignoring heartbeat timeout in Candidate state"
     currentState
 
+isSenderInConfig :: MessageFilter a
+isSenderInConfig s m nodes = True
+
 -- | `Handler' for `MCandidate' mode.
 handle :: (Functor m, Monad m, MonadLog m a)
        => Handler a Candidate m
@@ -139,6 +142,7 @@ handle = handleGeneric
             handleAppendEntriesResponse
             handleElectionTimeout
             handleHeartbeatTimeout
+            isSenderInConfig
 
 -- | Transitions into `MCandidate' mode with this `term'
 -- and resets the election timer. 
