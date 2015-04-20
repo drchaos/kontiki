@@ -22,7 +22,7 @@ import Data.ByteString.Char8 ()
 
 import Control.Lens
 
-import Control.Monad (when)
+import Control.Monad (when, unless)
 
 import Network.Kontiki.Log
 import Network.Kontiki.Types
@@ -98,7 +98,7 @@ handleRequestVoteResponse sender RequestVoteResponse{..} = do
         else currentState
 
 -- | Handles `AppendEntries'.
-handleAppendEntries :: (Functor m, Monad m, MonadLog m a)
+handleAppendEntries :: (Functor m, Monad m, MonadLog m a, GetNewNodeSet a)
                     => MessageHandler (AppendEntries a) a Follower m
 handleAppendEntries sender AppendEntries{..} = do
     currentTerm <- use fCurrentTerm
@@ -133,6 +133,9 @@ handleAppendEntries sender AppendEntries{..} = do
                            let truncateTo = prevIndex $ eIndex $ head es
                            truncateLog truncateTo
                            logEntries es
+                           let ce = filter hasNewNodeSet $ reverse es
+                           unless (null ce) $
+                               updateNodeSet $ head ce
                            return $ eIndex $ last es
                        else return lastIndex
 
@@ -208,7 +211,7 @@ isSenderInConfig s m nodes = case m of
     _                 -> s `Set.member` nodes
 
 -- | `Handler' for `MFollower' mode.
-handle :: (Functor m, Monad m, MonadLog m a) => Handler a Follower m
+handle :: (Functor m, Monad m, MonadLog m a, GetNewNodeSet a) => Handler a Follower m
 handle = handleGeneric
             handleRequestVote
             handleRequestVoteResponse

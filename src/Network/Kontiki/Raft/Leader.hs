@@ -20,6 +20,8 @@ import Data.List (sortBy)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Data.Maybe (listToMaybe)
+
 import Data.ByteString.Char8 ()
 
 import Control.Monad (when)
@@ -112,7 +114,7 @@ handleElectionTimeout :: (Functor m, Monad m)
 handleElectionTimeout = currentState
 
 -- | Handles `HeartbeatTimeout'.
-handleHeartbeatTimeout :: (Functor m, Monad m, MonadLog m a)
+handleHeartbeatTimeout :: (Functor m, Monad m, MonadLog m a, GetNewNodeSet a)
                        => TimeoutHandler HeartbeatTimeout a Leader m
 handleHeartbeatTimeout = do
     resetHeartbeatTimeout
@@ -122,10 +124,42 @@ handleHeartbeatTimeout = do
     lastEntry <- logLastEntry
 
     nodeId <- view configNodeId
-    lLastIndex %= Map.insert nodeId (maybe index0 eIndex lastEntry)
+
+    let lastIndex = maybe index0 eIndex lastEntry
+
+    oldLastIndex <- (Map.! nodeId) `fmap` use lLastIndex
+    lLastIndex %= Map.insert nodeId lastIndex 
+
+    nsEntries <- filter hasNewNodeSet `fmap` getEntries [] oldLastIndex lastIndex
+
+    when (length nsEntries > 1) $
+        error "Too many new node sets."
+
+    let nodeSetEntry = listToMaybe nsEntries
 
     nodes <- view configNodes
-    let otherNodes = filter (/= nodeId) (Set.toList nodes)
+
+    case nodeSetEntry of
+        Just ce  -> do
+            let added    = Set.toList $ n Set.\\ nodes
+                removed  = Set.toList $ nodes Set.\\ n
+                (Just n) = getNodes ce
+                lenAdded = length added
+                lenRemoved = length removed
+            updateNodeSet ce
+            if | lenAdded == 1 && lenRemoved == 0 -> do
+                    lLastIndex %= Map.insert (head added) index0
+                    lNextIndex %= Map.insert (head added) (succIndex lastIndex)
+               | lenAdded == 0 && lenRemoved == 1 -> do
+                    lLastIndex %= Map.delete (head removed)
+                    lNextIndex %= Map.delete (head removed)
+               | lenAdded > 1   -> error "Only one node can be added at a time."
+               | lenAdded /= 0 && lenRemoved /= 0 -> error "Nodes are added and removed."
+               | lenRemoved > 1 -> error "Only one node can be removed at a time."
+               | otherwise -> return ()
+        Nothing -> return ()
+
+    let otherNodes = filter (/= nodeId) (Set.toList $ maybe nodes id (maybe (Just nodes) getNodes nodeSetEntry))
     mapM_ (sendAppendEntries lastEntry commitIndex) otherNodes
     when (null otherNodes) $ do
         newQuorumIndex <- quorumIndex
@@ -135,6 +169,18 @@ handleHeartbeatTimeout = do
 
 
     currentState
+
+getEntries :: (Monad m, MonadLog m a)
+           => [Entry a]
+           -> Index
+           -> Index ->
+           m [Entry a]
+getEntries acc fromI toI 
+    | toI <= fromI = return acc
+    | otherwise = do
+        entry <- logEntry toI
+        -- TODO Handle failure
+        getEntries (maybe undefined id entry : acc) fromI (prevIndex toI)
 
 -- | Sends `AppendEntries' to a particular `NodeId'.
 sendAppendEntries :: (Monad m, MonadLog m a)
@@ -151,14 +197,7 @@ sendAppendEntries lastEntry commitIndex node = do
         lastTerm = maybe term0 eTerm lastEntry
         nextIndex = (Map.!) nextIndices node
 
-    let getEntries acc idx
-            | idx <= nextIndex = return acc
-            | otherwise = do
-                entry <- logEntry idx
-                -- TODO Handle failure
-                getEntries (maybe undefined id entry : acc) (prevIndex idx)
-
-    entries <- getEntries [] lastIndex
+    entries <- getEntries [] nextIndex lastIndex
 
     nodeId <- view configNodeId
 
@@ -186,7 +225,7 @@ isSenderInConfig s m nodes = case m of
     _                 -> s `Set.member` nodes
 
 -- | `Handler' for `MLeader' mode.
-handle :: (Functor m, Monad m, MonadLog m a)
+handle :: (Functor m, Monad m, MonadLog m a, GetNewNodeSet a)
        => Handler a Leader m
 handle = handleGeneric
             handleRequestVote

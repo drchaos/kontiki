@@ -92,6 +92,9 @@ logEntries es = tell [CLogEntries es]
 setCommitIndex :: Monad m => Index -> TransitionT a f m ()
 setCommitIndex i = tell [CSetCommitIndex i]
 
+updateNodeSet :: (Monad m, GetNewNodeSet a) => Entry a -> TransitionT a f m ()
+updateNodeSet e = tell [CUpdateNodeSet e]
+
 -- | Handler of events.
 type Handler a s m = 
                       Event a -- ^ `Event' to handle 

@@ -37,6 +37,10 @@ runMemLog = runReader . unMemLog
 
 type Value = String
 
+instance GetNewNodeSet [Char] where
+        getNodes _      = Nothing
+        hasNewNodeSet _ = False
+
 config :: Config
 config = Config { _configNodeId = "node0"
                 , _configNodes = Set.fromList ["node0", "node1"]

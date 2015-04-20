@@ -30,6 +30,7 @@ module Network.Kontiki.Types (
     , Index(unIndex), index0, succIndex, prevIndex
     , Term, term0, succTerm
     , Entry(..)
+    , GetNewNodeSet(..)
     , Config(..), configNodeId, configNodes, configElectionTimeout, configHeartbeatTimeout
     
     -- * Node states
@@ -138,6 +139,14 @@ data Entry a = Entry { eIndex :: Index  -- ^ `Index' of the entry
                      , eValue :: a      -- ^ Value contained in the entry
                      }
   deriving (Show, Eq)
+
+class GetNewNodeSet a where
+    getNodes      :: a -> Maybe NodeSet
+    hasNewNodeSet :: a -> Bool
+
+instance GetNewNodeSet a => GetNewNodeSet (Entry a) where
+    getNodes      = getNodes . eValue
+    hasNewNodeSet = hasNewNodeSet . eValue
 
 instance Binary a => Binary (Entry a) where
     get = Entry <$> get <*> get <*> get
@@ -386,6 +395,7 @@ data Command a = CBroadcast (Message a)        -- ^ Broadcast a `Message' to all
                | CTruncateLog Index            -- ^ Truncate the log to given `Index'
                | CLogEntries [Entry a]         -- ^ Append some entries to the log
                | CSetCommitIndex Index         -- ^ Set new commit `Index'
+               | CUpdateNodeSet (Entry a)       -- ^ Updates config
 
 {-| 
   Manually created `Show' instance for `Command'.
@@ -417,6 +427,8 @@ instance Show a => Show (Command a) where
                         . showsPrec 11 es
         CSetCommitIndex i -> showString "CSetCommitIndex "
                         . showsPrec 11 i
+        CUpdateNodeSet e -> showString "CUpdateNodeSet "
+                        . showsPrec 11 e
 
 instance Arbitrary a => Arbitrary (Command a) where
     arbitrary = do

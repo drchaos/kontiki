@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings,
              ScopedTypeVariables,
              GADTs,
+             FlexibleInstances,
              MultiWayIf #-}
 module Main (main) where
 
@@ -53,6 +54,10 @@ import Control.STM.Timer (Timer)
 import qualified Control.STM.Timer as Timer
 
 type Value = (NodeId, Int)
+
+instance Raft.GetNewNodeSet (NodeId, Int) where
+        getNodes _      = Nothing
+        hasNewNodeSet _ = False
 
 nodes :: Map NodeId ((String, Int))
 nodes = Map.fromList [ ("node0", ("127.0.0.1", 4000))
@@ -132,6 +137,9 @@ handleCommand s c = case c of
         let i = psCommitIndex s
         putStrLn $ "New commit index, to commit: " ++ entriesToCommit i i'
         return $ s { psCommitIndex = i' }
+    CUpdateNodeSet e -> do
+        putStrLn $ "NodeSet updated to: " ++ show e
+        return s
 
 entriesToCommit :: Index -> Index -> String
 entriesToCommit prev new =
