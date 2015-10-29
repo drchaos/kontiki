@@ -140,7 +140,7 @@ handleAppendEntries sender AppendEntries{..} = do
                        else return lastIndex
 
                    when (commitIndex < aeCommitIndex) $ do
-                       let newCommitIndex = min aeCommitIndex astIndex'
+                       let newCommitIndex = min aeCommitIndex lastIndex'
                        fCommitIndex .= aeCommitIndex
                        setCommitIndex aeCommitIndex
 
