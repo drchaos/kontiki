@@ -141,8 +141,8 @@ handleAppendEntries sender AppendEntries{..} = do
 
                    when (commitIndex < aeCommitIndex) $ do
                        let newCommitIndex = min aeCommitIndex lastIndex'
-                       fCommitIndex .= aeCommitIndex
-                       setCommitIndex aeCommitIndex
+                       fCommitIndex .= newCommitIndex
+                       setCommitIndex newCommitIndex
 
                    send sender $ AppendEntriesResponse { aerTerm = aeTerm
                                                        , aerSuccess = True
