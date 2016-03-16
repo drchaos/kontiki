@@ -162,7 +162,8 @@ handleHeartbeatTimeout = do
     let otherNodes = filter (/= nodeId) (Set.toList $ maybe nodes id (maybe (Just nodes) getNodes nodeSetEntry))
     mapM_ (sendAppendEntries lastEntry commitIndex) otherNodes
     when (null otherNodes) $ do
-        newQuorumIndex <- quorumIndex
+        -- when no other nodes, no quorum
+        let newQuorumIndex = lastIndex
         when (newQuorumIndex > commitIndex) $ do
             lCommitIndex .= newQuorumIndex
             setCommitIndex newQuorumIndex
