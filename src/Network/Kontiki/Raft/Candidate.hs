@@ -30,16 +30,12 @@ import qualified Network.Kontiki.Raft.Leader as Leader
 handleRequestVote :: (Functor m, Monad m) => MessageHandler RequestVote a Candidate m
 handleRequestVote sender RequestVote{..} = do
     currentTerm <- use cCurrentTerm
-    commitIndex <- use cCommitIndex
 
-    if rvTerm > currentTerm
-        then stepDown sender rvTerm commitIndex
-        else do
-            logS "Not granting vote"
-            send sender $ RequestVoteResponse { rvrTerm = currentTerm
-                                              , rvrVoteGranted = False
-                                              }
-            currentState
+    logS "Not granting vote"
+    send sender $ RequestVoteResponse { rvrTerm = currentTerm
+                                      , rvrVoteGranted = False
+                                      }
+    currentState
 
 -- | Handles `RequestVoteResponse'.
 handleRequestVoteResponse :: (Functor m, Monad m, MonadLog m a)
@@ -52,7 +48,6 @@ handleRequestVoteResponse sender RequestVoteResponse{..} = do
     if | rvrTerm < currentTerm -> do
            logS "Ignoring RequestVoteResponse for old term"
            currentState
-       | rvrTerm > currentTerm -> stepDown sender rvrTerm commitIndex
        | not rvrVoteGranted -> do
            logS "Ignoring RequestVoteResponse since vote wasn't granted"
            currentState
@@ -83,7 +78,7 @@ handleAppendEntries sender AppendEntries{..} = do
     if currentTerm <= aeTerm
         then do
             logS "Received AppendEntries for current or newer term"
-            stepDown sender aeTerm commitIndex
+            stepDown aeTerm commitIndex
         else do
             logS "Ignoring AppendEntries for old term"
             currentState

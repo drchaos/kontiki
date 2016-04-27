@@ -1,5 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving,
              FlexibleInstances,
+             FlexibleContexts,
              MultiParamTypeClasses,
              TypeFamilies,
              StandaloneDeriving #-}
@@ -21,6 +22,8 @@ import Prelude hiding (log)
 
 import Control.Applicative
 import Control.Monad.RWS
+import Control.Monad.Writer (MonadWriter)
+import Control.Monad.Reader (MonadReader)
 
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy.Builder (Builder, byteString)
@@ -61,7 +64,7 @@ send :: (Monad m, IsMessage t a) => NodeId -> t -> TransitionT a f m ()
 send n m = tell [CSend n (toMessage m)]
 
 -- | Resets the election timeout.
-resetElectionTimeout :: Monad m => TransitionT a f m ()
+resetElectionTimeout :: (Monad m , MonadWriter [Command a] m , MonadReader Config m) => m ()
 resetElectionTimeout = do
     t <- view configElectionTimeout
     tell [CResetElectionTimeout t (2 * t)]
@@ -73,11 +76,11 @@ resetHeartbeatTimeout = do
     tell [CResetHeartbeatTimeout t]
 
 -- | Logs a message from this `Builder' `b'.
-log :: Monad m => Builder -> TransitionT a f m ()
+log :: (Monad m , MonadWriter [Command a] m) => Builder -> m ()
 log b = tell [CLog b]
 
 -- | Logs a message from this `ByteString'.
-logS :: Monad m => ByteString -> TransitionT a f m ()
+logS :: Monad m => MonadWriter [Command a] m => ByteString -> m ()
 logS = log . byteString
 
 -- | Truncates the log of events to `Index' `i'.

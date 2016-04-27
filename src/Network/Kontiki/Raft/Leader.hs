@@ -39,38 +39,26 @@ handleRequestVote :: (Functor m, Monad m)
                   => MessageHandler RequestVote a Leader m
 handleRequestVote sender RequestVote{..} = do
     currentTerm <- use lCurrentTerm
-    commitIndex <- use lCommitIndex
 
-    if rvTerm > currentTerm
-        then stepDown sender rvTerm commitIndex
-        else do
-            logS "Not granting vote"
-            send sender $ RequestVoteResponse { rvrTerm = currentTerm
-                                              , rvrVoteGranted = False
-                                              }
-            currentState
+    -- | TODO: Check that leader can't get not up-to-date log in the same
+    -- term
+    logS "Not granting vote"
+    send sender $ RequestVoteResponse { rvrTerm = currentTerm
+                                      , rvrVoteGranted = False
+                                      }
+    currentState
 
 -- | Handle `RequestVoteResponse'.
 handleRequestVoteResponse :: (Functor m, Monad m)
                           => MessageHandler RequestVoteResponse a Leader m
-handleRequestVoteResponse sender RequestVoteResponse{..} = do
-    currentTerm <- use lCurrentTerm
-    commitIndex <- use lCommitIndex
-
-    if rvrTerm > currentTerm
-        then stepDown sender rvrTerm commitIndex
-        else currentState
+handleRequestVoteResponse sender RequestVoteResponse{..} =
+    currentState
 
 -- | Handles `AppendEntries'.
 handleAppendEntries :: (Functor m, Monad m)
                     => MessageHandler (AppendEntries a) a Leader m
-handleAppendEntries sender AppendEntries{..} = do
-    currentTerm <- use lCurrentTerm
-    commitIndex <- use lCommitIndex
-
-    if aeTerm > currentTerm
-        then stepDown sender aeTerm commitIndex
-        else currentState
+handleAppendEntries sender AppendEntries{..} =
+    currentState
 
 -- | Handles `AppendEntriesResponse'.
 handleAppendEntriesResponse :: (Functor m, Monad m)
@@ -82,7 +70,6 @@ handleAppendEntriesResponse sender AppendEntriesResponse{..} = do
     if | aerTerm < currentTerm -> do
            logS "Ignoring old AppendEntriesResponse"
            currentState
-       | aerTerm > currentTerm -> stepDown sender aerTerm commitIndex
        | not aerSuccess -> do
            lNextIndex %= Map.alter (\i -> Just $ maybe index0 prevIndex i) sender
            currentState

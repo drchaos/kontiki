@@ -20,6 +20,8 @@ import qualified Data.Set as Set
 import Data.ByteString.Char8 ()
 
 import Control.Monad.State.Class (get)
+import Control.Monad.Writer (MonadWriter)
+import Control.Monad.Reader (MonadReader)
 
 import Control.Lens (view)
 
@@ -92,17 +94,14 @@ isMajority votes = do
 -- `MFollower' mode.
 --  
 -- Can't have this in Follower due to recursive imports, bummer
-stepDown :: Monad m => NodeId -> Term -> Index -> TransitionT a f m SomeState
-stepDown sender term commitIndex = do
+stepDown :: (Monad m , MonadWriter [Command a] m , MonadReader Config m)
+         => Term -> Index -> m SomeState
+stepDown term commitIndex = do
     logS "Stepping down to Follower state"
 
     resetElectionTimeout
 
-    send sender RequestVoteResponse { rvrTerm = term
-                                    , rvrVoteGranted = True
-                                    }
-
     return $ wrap FollowerState { _fCurrentTerm = term
                                 , _fCommitIndex = commitIndex
-                                , _fVotedFor = Just sender
+                                , _fVotedFor = Nothing
                                 }

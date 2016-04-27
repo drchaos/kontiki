@@ -89,13 +89,8 @@ handleRequestVote sender RequestVote{..} = do
 -- | Handles `RequestVoteResponse'.
 handleRequestVoteResponse :: (Functor m, Monad m)
                           => MessageHandler RequestVoteResponse a Follower m
-handleRequestVoteResponse sender RequestVoteResponse{..} = do
-    currentTerm <- use fCurrentTerm
-    commitIndex <- use fCommitIndex
-
-    if rvrTerm > currentTerm
-        then stepDown sender rvrTerm commitIndex
-        else currentState
+handleRequestVoteResponse sender RequestVoteResponse{..} =
+    currentState
 
 -- | Handles `AppendEntries'.
 handleAppendEntries :: (Functor m, Monad m, MonadLog m a, GetNewNodeSet a)
@@ -106,8 +101,7 @@ handleAppendEntries sender AppendEntries{..} = do
     e <- logLastEntry
     let lastIndex = maybe index0 eIndex e
 
-    if | aeTerm > currentTerm -> stepDown sender aeTerm commitIndex
-       | aeTerm < currentTerm -> do
+    if | aeTerm < currentTerm -> do
            send sender $ AppendEntriesResponse { aerTerm = currentTerm
                                                , aerSuccess = False
                                                , aerLastIndex = lastIndex
