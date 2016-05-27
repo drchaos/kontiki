@@ -71,7 +71,7 @@ handleAppendEntriesResponse sender AppendEntriesResponse{..} = do
            logS "Ignoring old AppendEntriesResponse"
            currentState
        | not aerSuccess -> do
-           lNextIndex %= Map.alter (\i -> Just $ maybe index0 prevIndex i) sender
+           lNextIndex %= Map.alter (\i -> Just $ min aerLastIndex $ maybe index0 prevIndex i) sender
            currentState
        | otherwise -> do
            lastIndices <- use lLastIndex
