@@ -131,7 +131,9 @@ handleAppendEntries sender AppendEntries{..} = do
                            unless (null ce) $
                                updateNodeSet $ head ce
                            return $ eIndex $ last es
-                       else return lastIndex
+                       else do 
+                           truncateLog aePrevLogIndex
+                           return aePrevLogIndex
 
                    when (commitIndex < aeCommitIndex) $ do
                        let newCommitIndex = min aeCommitIndex lastIndex'
