@@ -76,14 +76,13 @@ handleAppendEntriesResponse sender AppendEntriesResponse{..} = do
        | otherwise -> do
            lastIndices <- use lLastIndex
            let li = maybe index0 id (Map.lookup sender lastIndices)
-           -- Ignore if this is an old message
-           when (aerLastIndex >= li) $ do
-               lLastIndex %= Map.insert sender aerLastIndex
-               lNextIndex %= Map.insert sender aerLastIndex
-               newQuorumIndex <- quorumIndex
-               when (newQuorumIndex > commitIndex) $ do
-                   lCommitIndex .= newQuorumIndex
-                   setCommitIndex newQuorumIndex
+
+           lLastIndex %= Map.insert sender aerLastIndex
+           lNextIndex %= Map.insert sender aerLastIndex
+           newQuorumIndex <- quorumIndex
+           when (newQuorumIndex > commitIndex) $ do
+               lCommitIndex .= newQuorumIndex
+               setCommitIndex newQuorumIndex
            currentState
 
 -- | Calculates current quorum `Index' from nodes' latest indices
